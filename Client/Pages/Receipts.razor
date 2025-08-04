@@ -1,5 +1,6 @@
 ﻿@page "/receipts"
 @inject HttpClient Http
+
 <h2>Поступления</h2>
 
 <button class="btn btn-success mb-3" @onclick="OnAddButtonClick">
@@ -96,14 +97,27 @@ else
         <tbody>
             @foreach (var receipt in receipts)
             {
-                @foreach (var item in receipt.Items)
+                if (receipt.Items != null && receipt.Items.Any())
+                {
+                    foreach (var item in receipt.Items)
+                    {
+                        <tr>
+                            <td>@receipt.Number</td>
+                            <td>@receipt.Date.ToShortDateString()</td>
+                            <td>@item.ResourceName</td>
+                            <td>@item.UnitName</td>
+                            <td>@item.Quantity</td>
+                        </tr>
+                    }
+                }
+                else
                 {
                     <tr>
                         <td>@receipt.Number</td>
                         <td>@receipt.Date.ToShortDateString()</td>
-                        <td>@item.ResourceName</td>
-                        <td>@item.UnitName</td>
-                        <td>@item.Quantity</td>
+                        <td></td>
+                        <td></td>
+                        <td>0</td>
                     </tr>
                 }
             }
@@ -149,14 +163,13 @@ else
 
     private async Task SaveReceipt()
     {
-        // валидация по необходимости...
-
         var response = await Http.PostAsJsonAsync("api/receipts", newReceipt);
 
         if (response.IsSuccessStatusCode)
         {
             isAdding = false;
             await LoadReceipts();
+            StateHasChanged();
         }
         else
         {

@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using WarehouseApp.Server.Data;
 using WarehouseApp.Server.Models;
+using NewReceiptModel = WarehouseApp.Server.Models.NewReceiptModel;
 
 namespace WarehouseApp.Server.Controllers
 {
@@ -43,20 +44,30 @@ namespace WarehouseApp.Server.Controllers
 			return Ok(result);
 		}
 
-		// DTO классы можно вынести в отдельный файл
-		public class ReceiptDto
+		[HttpPost]
+		public async Task<IActionResult> CreateReceipt([FromBody] NewReceiptModel newReceipt)
 		{
-			public int Id { get; set; }
-			public string Number { get; set; } = "";
-			public DateTime Date { get; set; }
-			public List<ReceiptItemDto> Items { get; set; } = new();
-		}
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ModelState);
+			}
 
-		public class ReceiptItemDto
-		{
-			public string ResourceName { get; set; } = "";
-			public string UnitName { get; set; } = "";
-			public decimal Quantity { get; set; }
+			var receiptEntity = new ReceiptDocument
+			{
+				Number = newReceipt.Number,
+				Date = newReceipt.Date,
+				Items = newReceipt.Items.Select(i => new ReceiptItem
+				{
+					ResourceId = i.ResourceId,
+					UnitId = i.UnitId,
+					Quantity = i.Quantity
+				}).ToList()
+			};
+
+			_context.ReceiptDocuments.Add(receiptEntity);
+			await _context.SaveChangesAsync();
+
+			return CreatedAtAction(nameof(GetReceipts), new { id = receiptEntity.Id }, receiptEntity);
 		}
 	}
 }
