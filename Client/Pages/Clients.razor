@@ -4,12 +4,11 @@
 <h2>Клиенты</h2>
 
 <div>
-    <button class="btn btn-success" @onclick="ShowAddForm">Добавить</button>
+    <button class="btn btn-success" @onclick="ShowAddClient">Добавить</button>
     <button class="btn btn-warning" @onclick="ToggleArchived">
         @(showArchived ? "К рабочим" : "К архиву")
     </button>
 </div>
-<br/>
 
 @if (isAdding)
 {
@@ -29,12 +28,48 @@
             <label>Адрес</label>
             <InputText @bind-Value="newClient.Address" class="form-control" />
         </div>
-        <button class="btn btn-success">Сохранить</button>
+
+        <button type="submit" class="btn btn-success">Сохранить</button>
+        <button type="button" class="btn btn-secondary" @onclick="CancelAdd">Отмена</button>
+    </EditForm>
+}
+else if (selectedClient != null)
+{
+    <EditForm Model="selectedClient" OnValidSubmit="UpdateClient">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-2">
+            <label>Наименование</label>
+            <InputText @bind-Value="selectedClient.Name" class="form-control" />
+        </div>
+        <div class="mb-2">
+            <label>Адрес</label>
+            <InputText @bind-Value="selectedClient.Address" class="form-control" />
+        </div>
+
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+            <button type="button" class="btn btn-danger" @onclick="DeleteClient">Удалить</button>
+
+            @if (selectedClient.IsArchived)
+            {
+                <button type="button" class="btn btn-success" @onclick="UnarchiveClient">В работу</button>
+            }
+            else
+            {
+                <button type="button" class="btn btn-warning" @onclick="ArchiveClient">В архив</button>
+            }
+        </div>
     </EditForm>
 }
 else if (clients == null)
 {
     <p>Загрузка...</p>
+}
+else if (!clients.Any())
+{
+    <p>Нет данных.</p>
 }
 else
 {
@@ -46,11 +81,11 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var c in clients)
+            @foreach (var client in clients)
             {
-                <tr>
-                    <td>@c.Name</td>
-                    <td>@c.Address</td>
+                <tr @ondblclick="() => SelectClient(client)">
+                    <td>@client.Name</td>
+                    <td>@client.Address</td>
                 </tr>
             }
         </tbody>
@@ -59,41 +94,27 @@ else
 
 @code {
     private List<Client>? clients;
+    private Client newClient = new Client();
+    private Client? selectedClient;
     private bool isAdding = false;
-    private Client newClient = new();
     private bool showArchived = false;
     private string? errorMessage;
 
-    protected override async Task OnInitializedAsync() => await LoadClients();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClients();
+    }
 
     private async Task LoadClients()
     {
-        var url = $"api/clients?isArchived={showArchived.ToString().ToLower()}";
-        clients = await Http.GetFromJsonAsync<List<Client>>(url);
-    }
-
-    private void ShowAddForm()
-    {
-        isAdding = true;
-        newClient = new();
-    }
-
-    private async Task AddClient()
-    {
-        var response = await Http.PostAsJsonAsync("api/clients", newClient);
-        if (response.IsSuccessStatusCode)
+        try
         {
-            isAdding = false;
-            await LoadClients();
+            var url = $"api/clients?isArchived={showArchived.ToString().ToLower()}";
+            clients = await Http.GetFromJsonAsync<List<Client>>(url);
         }
-        else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+        catch (Exception ex)
         {
-            errorMessage = "В системе уже зарегистрирован клиент с таким наименованием.";
-        }
-        else
-        {
-            var error = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"Ошибка при добавлении: {error}");
+            Console.WriteLine($"Ошибка при загрузке клиентов: {ex.Message}");
         }
     }
 
@@ -101,6 +122,139 @@ else
     {
         showArchived = !showArchived;
         await LoadClients();
+    }
+
+    private void ShowAddClient()
+    {
+        isAdding = true;
+        selectedClient = null;
+        newClient = new Client();
+        errorMessage = null;
+    }
+
+    private void CancelAdd()
+    {
+        isAdding = false;
+        errorMessage = null;
+    }
+
+    private void SelectClient(Client client)
+    {
+        selectedClient = client;
+        isAdding = false;
+        errorMessage = null;
+    }
+
+    private async Task AddClient()
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/clients", newClient);
+            if (response.IsSuccessStatusCode)
+            {
+                isAdding = false;
+                await LoadClients();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                errorMessage = "В системе уже зарегистрирован клиент с таким наименованием.";
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Ошибка при добавлении клиента: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Исключение: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateClient()
+    {
+        if (selectedClient == null) return;
+
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/clients/{selectedClient.Id}", selectedClient);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadClients();
+                selectedClient = null;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                errorMessage = "В системе уже зарегистрирован клиент с таким наименованием.";
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Ошибка при обновлении клиента: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Исключение: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteClient()
+    {
+        if (selectedClient == null) return;
+
+        try
+        {
+            var response = await Http.DeleteAsync($"api/clients/{selectedClient.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadClients();
+                selectedClient = null;
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Ошибка при удалении клиента: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Исключение: {ex.Message}");
+        }
+    }
+
+    private async Task ArchiveClient()
+    {
+        if (selectedClient == null) return;
+
+        var response = await Http.PatchAsync($"api/clients/{selectedClient.Id}/archive", null);
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadClients();
+            selectedClient = null;
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Ошибка при архивировании клиента: {error}");
+        }
+    }
+
+    private async Task UnarchiveClient()
+    {
+        if (selectedClient == null) return;
+
+        var response = await Http.PatchAsync($"api/clients/{selectedClient.Id}/unarchive", null);
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadClients();
+            selectedClient = null;
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Ошибка при снятии с архива клиента: {error}");
+        }
     }
 
     public class Client
