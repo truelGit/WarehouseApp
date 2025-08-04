@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35931.197 d17.13
+VisualStudioVersion = 17.13.35931.197
 MinimumVisualStudioVersion = 16.0.0.0
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WarehouseApp.Server", "Server\WarehouseApp.Server.csproj", "{6E174ADF-FF3E-49DB-AFEF-7F94FF60F2B8}"
 EndProject
