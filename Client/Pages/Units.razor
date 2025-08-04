@@ -3,12 +3,13 @@
 
 <h2>Единицы измерения</h2>
 
-<div class="mb-3">
-    <button class="btn btn-success me-2" @onclick="ShowAddUnit">Добавить</button>
+<div>
+    <button class="btn btn-success" @onclick="ShowAddUnit">Добавить</button>
     <button class="btn btn-warning" @onclick="ToggleArchived">
         @(showArchived ? "К рабочим" : "К архиву")
     </button>
 </div>
+<br />
 
 @if (isAdding)
 {
@@ -25,8 +26,33 @@
             <InputText @bind-Value="newUnit.Name" class="form-control" />
         </div>
 
-        <button type="submit" class="btn btn-success me-2">Сохранить</button>
+        <button type="submit" class="btn btn-success">Сохранить</button>
         <button type="button" class="btn btn-secondary" @onclick="CancelAdd">Отмена</button>
+    </EditForm>
+}
+else if (selectedUnit != null)
+{
+    <EditForm Model="selectedUnit" OnValidSubmit="UpdateUnit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-2">
+            <label>Наименование</label>
+            <InputText @bind-Value="selectedUnit.Name" class="form-control" />
+        </div>
+
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+            <button type="button" class="btn btn-danger" @onclick="DeleteUnit">Удалить</button>
+            @if (selectedUnit.IsArchived)
+            {
+                <button type="button" class="btn btn-success" @onclick="UnarchiveUnit">В работу</button>
+            }
+            else
+            {
+                <button type="button" class="btn btn-warning" @onclick="ArchiveUnit">В архив</button>
+            }
+        </div>
     </EditForm>
 }
 else if (units == null)
@@ -39,7 +65,7 @@ else if (!units.Any())
 }
 else
 {
-    <table class="table-bordered">
+    <table class="table table-bordered">
         <thead>
             <tr>
                 <th>Наименование</th>
@@ -48,7 +74,7 @@ else
         <tbody>
             @foreach (var unit in units)
             {
-                <tr>
+                <tr @ondblclick="() => SelectUnit(unit)">
                     <td>@unit.Name</td>
                 </tr>
             }
@@ -58,8 +84,9 @@ else
 
 @code {
     private List<Unit>? units;
-    private Unit newUnit = new();
     private bool isAdding = false;
+    private Unit newUnit = new Unit();
+    private Unit? selectedUnit = null;
     private bool showArchived = false;
     private string? errorMessage;
 
@@ -77,19 +104,22 @@ else
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Ошибка при загрузке: {ex.Message}");
+            Console.WriteLine($"Ошибка загрузки: {ex.Message}");
         }
     }
 
     private async Task ToggleArchived()
     {
         showArchived = !showArchived;
+        selectedUnit = null;
+        isAdding = false;
         await LoadUnits();
     }
 
     private void ShowAddUnit()
     {
         isAdding = true;
+        selectedUnit = null;
         newUnit = new Unit();
     }
 
@@ -110,12 +140,93 @@ else
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
             {
-                errorMessage = "В системе уже зарегистрирована единица изменерения с таким наименованием.";
+                errorMessage = "В системе уже зарегистрирована единица измерения с таким наименованием.";
             }
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Ошибка при добавлении: {error}");
+                Console.WriteLine($"Ошибка добавления: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Исключение при добавлении: {ex.Message}");
+        }
+    }
+
+    private void SelectUnit(Unit unit)
+    {
+        selectedUnit = unit;
+        isAdding = false;
+    }
+
+    private async Task UpdateUnit()
+    {
+        if (selectedUnit == null) return;
+
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/units/{selectedUnit.Id}", selectedUnit);
+            if (response.IsSuccessStatusCode)
+            {
+                selectedUnit = null;
+                await LoadUnits();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                errorMessage = "В системе уже зарегистрирована единица измерения с таким наименованием.";
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Ошибка обновления: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Исключение при обновлении: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteUnit()
+    {
+        if (selectedUnit == null) return;
+
+        try
+        {
+            var response = await Http.DeleteAsync($"api/units/{selectedUnit.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                selectedUnit = null;
+                await LoadUnits();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Ошибка удаления: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Исключение при удалении: {ex.Message}");
+        }
+    }
+
+    private async Task ArchiveUnit()
+    {
+        if (selectedUnit == null) return;
+        try
+        {
+            var response = await Http.PatchAsync($"api/units/{selectedUnit.Id}/archive", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadUnits();
+                selectedUnit = null; // сброс после операции
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Ошибка при архивировании: {error}");
             }
         }
         catch (Exception ex)
@@ -124,19 +235,21 @@ else
         }
     }
 
-    private async Task ArchiveUnit(int id)
+    private async Task UnarchiveUnit()
     {
+        if (selectedUnit == null) return;
         try
         {
-            var response = await Http.PatchAsync($"api/units/{id}/archive", null);
+            var response = await Http.PatchAsync($"api/units/{selectedUnit.Id}/unarchive", null);
             if (response.IsSuccessStatusCode)
             {
                 await LoadUnits();
+                selectedUnit = null; // сброс после операции
             }
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Ошибка при архивировании: {error}");
+                Console.WriteLine($"Ошибка при снятии с архива: {error}");
             }
         }
         catch (Exception ex)

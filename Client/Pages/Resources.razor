@@ -20,12 +20,34 @@
     <EditForm Model="newResource" OnValidSubmit="AddResource">
         <DataAnnotationsValidator />
         <ValidationSummary />
-
         <div class="mb-2">
-            <label>Наименование</label><InputText @bind-Value="newResource.Name" class="form-control" />
+            <label>Наименование</label>
+            <InputText @bind-Value="newResource.Name" class="form-control" />
         </div>
-
-        <button type="submit" class="btn btn-success">Save</button>
+        <button type="submit" class="btn btn-success">Сохранить</button>
+    </EditForm>
+}
+else if (selectedResource != null)
+{
+    <EditForm Model="selectedResource" OnValidSubmit="UpdateResource">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="mb-2">
+            <label>Наименование</label>
+            <InputText @bind-Value="selectedResource.Name" class="form-control" />
+        </div>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+            <button type="button" class="btn btn-danger" @onclick="DeleteResource">Удалить</button>
+            @if (selectedResource.IsArchived)
+            {
+                <button type="button" class="btn btn-success" @onclick="UnarchiveResource">В работу</button>
+            }
+            else
+            {
+                <button type="button" class="btn btn-warning" @onclick="ArchiveResource">В архив</button>
+            }
+        </div>
     </EditForm>
 }
 else if (resources == null)
@@ -34,7 +56,7 @@ else if (resources == null)
 }
 else if (!resources.Any())
 {
-    <p>No resources found.</p>
+    <p>Нет данных.</p>
 }
 else
 {
@@ -47,7 +69,7 @@ else
         <tbody>
             @foreach (var res in resources)
             {
-                <tr>
+                <tr @ondblclick="() => EditResource(res)">
                     <td>@res.Name</td>
                 </tr>
             }
@@ -61,6 +83,7 @@ else
     private Resource newResource = new Resource();
     private bool showArchived = false;
     private string? errorMessage;
+    private Resource? selectedResource;
 
     private async Task ToggleArchived()
     {
@@ -77,7 +100,6 @@ else
     {
         try
         {
-            resources = null;
             var url = $"api/resources?isArchived={showArchived.ToString().ToLower()}";
             resources = await Http.GetFromJsonAsync<List<Resource>>(url);
         }
@@ -90,13 +112,9 @@ else
 
     private void ShowAddResource()
     {
+        selectedResource = null;
         isAdding = true;
-        newResource = new Resource(); // сброс формы
-    }
-
-    private void CancelAdd()
-    {
-        isAdding = false;
+        newResource = new Resource();
     }
 
     private async Task AddResource()
@@ -122,6 +140,98 @@ else
         catch (Exception ex)
         {
             Console.WriteLine($"Exception adding resource: {ex.Message}");
+        }
+    }
+
+    private void EditResource(Resource res)
+    {
+        isAdding = false;
+        selectedResource = new Resource
+            {
+                Id = res.Id,
+                Name = res.Name,
+                IsArchived = res.IsArchived
+            };
+    }
+
+    private async Task UpdateResource()
+    {
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/resources/{selectedResource!.Id}", selectedResource);
+            if (response.IsSuccessStatusCode)
+            {
+                selectedResource = null;
+                await LoadResources();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error updating resource: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception updating resource: {ex.Message}");
+        }
+    }
+
+    private async Task ArchiveResource()
+    {
+        if (selectedResource == null) return;
+
+        var response = await Http.PatchAsync($"api/resources/{selectedResource.Id}/archive", null);
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadResources();
+            selectedResource = null;
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Ошибка при архивировании: {error}");
+        }
+    }
+
+    private async Task UnarchiveResource()
+    {
+        if (selectedResource == null) return;
+
+        var response = await Http.PatchAsync($"api/resources/{selectedResource.Id}/unarchive", null);
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadResources();
+            selectedResource = null;
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Ошибка при снятии с архива: {error}");
+        }
+    }
+
+    private async Task DeleteResource()
+    {
+        if (selectedResource == null)
+            return;
+
+        try
+        {
+            var response = await Http.DeleteAsync($"api/resources/{selectedResource.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                selectedResource = null;
+                await LoadResources();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error deleting resource: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception deleting resource: {ex.Message}");
         }
     }
 

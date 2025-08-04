@@ -85,4 +85,29 @@ public class ResourcesController : ControllerBase
 
         return NoContent();
     }
+
+	[HttpPatch("{id}/unarchive")]
+	public async Task<IActionResult> UnarchiveResource(int id)
+	{
+		var resource = await _context.Resources.FindAsync(id);
+		if (resource == null) return NotFound();
+
+		resource.IsArchived = false;
+		await _context.SaveChangesAsync();
+
+		return NoContent();
+	}
+
+	[HttpDelete("{id}")]
+	public async Task<IActionResult> DeleteResource(int id)
+	{
+		var resource = await _context.Resources.FindAsync(id);
+		if (resource == null)
+			return NotFound();
+
+		_context.Resources.Remove(resource);
+		await _context.SaveChangesAsync();
+
+		return NoContent();
+	}
 }
