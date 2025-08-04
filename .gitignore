@@ -1,0 +1,19 @@
+# Rider/Visual Studio
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build
+bin/
+obj/
+
+# System
+*.log
+*.DS_Store
+Thumbs.db
+
+# Secrets
+**/secrets.json

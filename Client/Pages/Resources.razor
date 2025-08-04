@@ -1,0 +1,134 @@
+﻿@page "/resources"
+@inject HttpClient Http
+
+<h2>Ресурсы</h2>
+
+<div>
+    <button class="btn btn-success" @onclick="ShowAddResource">Добавить</button>
+    <button class="btn btn-warning" @onclick="ToggleArchived">
+        @(showArchived ? "К рабочим" : "К архиву")
+    </button>
+</div>
+<br />
+
+@if (isAdding)
+{
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-warning">@errorMessage</div>
+    }
+    <EditForm Model="newResource" OnValidSubmit="AddResource">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-2">
+            <label>Наименование</label><InputText @bind-Value="newResource.Name" class="form-control" />
+        </div>
+
+        <button type="submit" class="btn btn-success">Save</button>
+    </EditForm>
+}
+else if (resources == null)
+{
+    <p>Loading...</p>
+}
+else if (!resources.Any())
+{
+    <p>No resources found.</p>
+}
+else
+{
+    <table class="table-bordered">
+        <thead>
+            <tr>
+                <th>Наименование</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var res in resources)
+            {
+                <tr>
+                    <td>@res.Name</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Resource>? resources;
+    private bool isAdding = false;
+    private Resource newResource = new Resource();
+    private bool showArchived = false;
+    private string? errorMessage;
+
+    private async Task ToggleArchived()
+    {
+        showArchived = !showArchived;
+        await LoadResources();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadResources();
+    }
+
+    private async Task LoadResources()
+    {
+        try
+        {
+            resources = null;
+            var url = $"api/resources?isArchived={showArchived.ToString().ToLower()}";
+            resources = await Http.GetFromJsonAsync<List<Resource>>(url);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading resources: {ex.Message}");
+        }
+    }
+
+
+    private void ShowAddResource()
+    {
+        isAdding = true;
+        newResource = new Resource(); // сброс формы
+    }
+
+    private void CancelAdd()
+    {
+        isAdding = false;
+    }
+
+    private async Task AddResource()
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/resources", newResource);
+            if (response.IsSuccessStatusCode)
+            {
+                isAdding = false;
+                await LoadResources();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                errorMessage = "В системе уже зарегистрирован ресурс с таким наименованием.";
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Ошибка: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception adding resource: {ex.Message}");
+        }
+    }
+
+    public class Resource
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public bool IsArchived { get; set; }
+    }
+}

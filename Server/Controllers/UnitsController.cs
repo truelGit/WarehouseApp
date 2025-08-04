@@ -1,0 +1,53 @@
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using WarehouseApp.Server.Data;
+using WarehouseApp.Server.Models;
+
+namespace WarehouseApp.Server.Controllers
+{
+	[ApiController]
+	[Route("api/units")]
+	public class UnitsController : ControllerBase
+	{
+		private readonly WarehouseDbContext _context;
+
+		public UnitsController(WarehouseDbContext context)
+		{
+			_context = context;
+		}
+
+		[HttpGet]
+		public async Task<IActionResult> GetUnits([FromQuery] bool? isArchived = null)
+		{
+			IQueryable<Unit> query = _context.Units;
+			if (isArchived.HasValue)
+				query = query.Where(u => u.IsArchived == isArchived.Value);
+
+			return Ok(await query.ToListAsync());
+		}
+
+		[HttpPost]
+		public async Task<IActionResult> CreateUnit(Unit unit)
+		{
+			if (await _context.Units.AnyAsync(u => u.Name == unit.Name))
+				return Conflict("Unit with this name already exists.");
+
+			_context.Units.Add(unit);
+			await _context.SaveChangesAsync();
+
+			return CreatedAtAction(nameof(GetUnits), new { id = unit.Id }, unit);
+		}
+
+		[HttpPatch("{id}/archive")]
+		public async Task<IActionResult> ArchiveUnit(int id)
+		{
+			var unit = await _context.Units.FindAsync(id);
+			if (unit == null) return NotFound();
+
+			unit.IsArchived = true;
+			await _context.SaveChangesAsync();
+
+			return NoContent();
+		}
+	}
+}

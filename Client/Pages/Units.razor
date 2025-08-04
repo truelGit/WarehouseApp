@@ -1,0 +1,154 @@
+﻿@page "/units"
+@inject HttpClient Http
+
+<h2>Единицы измерения</h2>
+
+<div class="mb-3">
+    <button class="btn btn-success me-2" @onclick="ShowAddUnit">Добавить</button>
+    <button class="btn btn-warning" @onclick="ToggleArchived">
+        @(showArchived ? "К рабочим" : "К архиву")
+    </button>
+</div>
+
+@if (isAdding)
+{
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-warning">@errorMessage</div>
+    }
+    <EditForm Model="newUnit" OnValidSubmit="AddUnit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-2">
+            <label>Наименование</label>
+            <InputText @bind-Value="newUnit.Name" class="form-control" />
+        </div>
+
+        <button type="submit" class="btn btn-success me-2">Сохранить</button>
+        <button type="button" class="btn btn-secondary" @onclick="CancelAdd">Отмена</button>
+    </EditForm>
+}
+else if (units == null)
+{
+    <p>Загрузка...</p>
+}
+else if (!units.Any())
+{
+    <p>Нет данных.</p>
+}
+else
+{
+    <table class="table-bordered">
+        <thead>
+            <tr>
+                <th>Наименование</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var unit in units)
+            {
+                <tr>
+                    <td>@unit.Name</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Unit>? units;
+    private Unit newUnit = new();
+    private bool isAdding = false;
+    private bool showArchived = false;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUnits();
+    }
+
+    private async Task LoadUnits()
+    {
+        try
+        {
+            var url = $"api/units?isArchived={showArchived.ToString().ToLower()}";
+            units = await Http.GetFromJsonAsync<List<Unit>>(url);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при загрузке: {ex.Message}");
+        }
+    }
+
+    private async Task ToggleArchived()
+    {
+        showArchived = !showArchived;
+        await LoadUnits();
+    }
+
+    private void ShowAddUnit()
+    {
+        isAdding = true;
+        newUnit = new Unit();
+    }
+
+    private void CancelAdd()
+    {
+        isAdding = false;
+    }
+
+    private async Task AddUnit()
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/units", newUnit);
+            if (response.IsSuccessStatusCode)
+            {
+                isAdding = false;
+                await LoadUnits();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                errorMessage = "В системе уже зарегистрирована единица изменерения с таким наименованием.";
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Ошибка при добавлении: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Исключение: {ex.Message}");
+        }
+    }
+
+    private async Task ArchiveUnit(int id)
+    {
+        try
+        {
+            var response = await Http.PatchAsync($"api/units/{id}/archive", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadUnits();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Ошибка при архивировании: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Исключение: {ex.Message}");
+        }
+    }
+
+    public class Unit
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public bool IsArchived { get; set; }
+    }
+}
