@@ -67,7 +67,21 @@ namespace WarehouseApp.Server.Controllers
 			_context.ReceiptDocuments.Add(receiptEntity);
 			await _context.SaveChangesAsync();
 
-			return CreatedAtAction(nameof(GetReceipts), new { id = receiptEntity.Id }, receiptEntity);
+			var result = new ReceiptDto
+			{
+				Id = receiptEntity.Id,
+				Number = receiptEntity.Number,
+				Date = receiptEntity.Date,
+				Items = receiptEntity.Items.Select(i => new ReceiptItemDto
+				{
+					ResourceName = "",
+					UnitName = "",
+					Quantity = i.Quantity
+				}).ToList()
+			};
+
+			return CreatedAtAction(nameof(GetReceipts), new { id = receiptEntity.Id }, result);
 		}
+
 	}
 }
