@@ -25,6 +25,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+	var dbContext = scope.ServiceProvider.GetRequiredService<WarehouseDbContext>();
+	dbContext.Database.Migrate();
+}
+
 // Конвейер обработки запроса
 if (app.Environment.IsDevelopment())
 {
@@ -36,16 +42,16 @@ else
 	app.UseHsts();
 }
 
-app.UseHttpsRedirection();                   // перенаправление на https
-app.UseBlazorFrameworkFiles();              // ← для загрузки wasm
-app.UseStaticFiles();                       // ← для index.html и .js файлов
+app.UseHttpsRedirection();
+app.UseBlazorFrameworkFiles();
+app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseCors(MyAllowSpecificOrigins);        // ← если нужен CORS, оставить
+app.UseCors(MyAllowSpecificOrigins);
 
-app.MapRazorPages();                        // ← страницы Razor
-app.MapControllers();                       // ← твои API /api/*
-app.MapFallbackToFile("index.html");        // ← отдаст index.html если путь не найден
+app.MapRazorPages();
+app.MapControllers();
+app.MapFallbackToFile("index.html");
 
 app.Run();
