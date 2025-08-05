@@ -5,6 +5,8 @@
 <div class="row">
     <div class="col">Период</div>
     <div class="col">Номер поступления</div>
+    <div class="col">Ресурс</div>
+    <div class="col">Единицы измерения</div>
 </div>
 <div class="row">
     <div class="col">
@@ -20,6 +22,22 @@
                 <option value="@num" selected="@selectedNumbers.Contains(num)">
                     @num
                 </option>
+            }
+        </select>
+    </div>
+    <div class="col">
+        <select class="form-select" @onchange="OnResourcesChanged">
+            @foreach (var res in resources)
+            {
+                <option value="@res.Id" selected="@selectedResourceIds.Contains(res.Id)">@res.Name</option>
+            }
+        </select>
+    </div>
+    <div class="col">
+        <select class="form-select" @onchange="OnUnitsChanged">
+            @foreach (var unit in units)
+            {
+                <option value="@unit.Id" selected="@selectedUnitIds.Contains(unit.Id)">@unit.Name</option>
             }
         </select>
     </div>
@@ -176,6 +194,63 @@ else
         selectedNumbers = selected;
     }
 
+    private void OnResourcesChanged(ChangeEventArgs e)
+    {
+        if (e.Value is not null)
+        {
+            var selectedOptions = (e.Value as IEnumerable<string>)?.ToList();
+
+            if (selectedOptions != null)
+            {
+                selectedResourceIds = selectedOptions.Select(int.Parse).ToList();
+            }
+            else
+            {
+                if (e.Value is string singleValue)
+                {
+                    selectedResourceIds = new List<int> { int.Parse(singleValue) };
+                }
+                else
+                {
+                    selectedResourceIds = new List<int>();
+                }
+            }
+        }
+        else
+        {
+            selectedResourceIds.Clear();
+        }
+    }
+
+    private void OnUnitsChanged(ChangeEventArgs e)
+    {
+        if (e.Value is not null)
+        {
+            var selectedOptions = (e.Value as IEnumerable<string>)?.ToList();
+
+            if (selectedOptions != null)
+            {
+                selectedUnitIds = selectedOptions.Select(int.Parse).ToList();
+            }
+            else
+            {
+                if (e.Value is string singleValue)
+                {
+                    selectedUnitIds = new List<int> { int.Parse(singleValue) };
+                }
+                else
+                {
+                    selectedUnitIds = new List<int>();
+                }
+            }
+        }
+        else
+        {
+            selectedUnitIds.Clear();
+        }
+    }
+
+
     private async Task ApplyFilters()
     {
         var queryParams = new Dictionary<string, string>();
@@ -187,6 +262,12 @@ else
 
         foreach (var num in selectedNumbers)
             queryParams.Add("numbers", num);
+
+        foreach (var id in selectedUnitIds)
+            queryParams.Add("unitIds", id.ToString());
+
+        foreach (var id in selectedResourceIds)
+            queryParams.Add("resourceIds", id.ToString());
 
         var query = string.Join("&", queryParams.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
         receipts = await Http.GetFromJsonAsync<List<ReceiptDto>>($"api/receipts/filtered?{query}");
