@@ -88,6 +88,37 @@ namespace WarehouseApp.Server.Controllers
 			return Ok(result);
 		}
 
+		[HttpPut("{id}")]
+		public async Task<IActionResult> UpdateReceipt(int id, [FromBody] NewReceiptModel model)
+		{
+			if (id != model.Id)
+				return BadRequest("ID в URL и в теле не совпадают.");
+
+			var existingReceipt = await _context.ReceiptDocuments
+				.Include(r => r.Items)
+				.FirstOrDefaultAsync(r => r.Id == id);
+
+			if (existingReceipt == null)
+				return NotFound();
+
+			existingReceipt.Number = model.Number;
+			existingReceipt.Date = model.Date;
+
+			_context.ReceiptItems.RemoveRange(existingReceipt.Items);
+
+			existingReceipt.Items = model.Items.Select(i => new ReceiptItem
+			{
+				ResourceId = i.ResourceId,
+				UnitId = i.UnitId,
+				Quantity = i.Quantity
+			}).ToList();
+
+			await _context.SaveChangesAsync();
+
+			return NoContent();
+		}
+
+
 		[HttpPost]
 		public async Task<IActionResult> CreateReceipt([FromBody] NewReceiptModel newReceipt)
 		{

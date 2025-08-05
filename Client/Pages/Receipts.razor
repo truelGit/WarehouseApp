@@ -48,35 +48,33 @@
 </button>
 <button class="btn btn-primary mb-3" @onclick="ApplyFilters">Применить</button>
 
-@if (isAdding)
+@if (isEditing || isAdding)
 {
-    <EditForm Model="newReceipt" OnValidSubmit="SaveReceipt">
+    <EditForm Model="editingReceipt" OnValidSubmit="SaveReceipt">
         <DataAnnotationsValidator />
         <ValidationSummary />
 
         <div class="mb-3">
             <label>Номер</label>
-            <InputText @bind-Value="newReceipt.Number" class="form-control" />
+            <InputText @bind-Value="editingReceipt.Number" class="form-control" />
         </div>
 
         <div class="mb-3">
             <label>Дата</label>
-            <InputDate @bind-Value="newReceipt.Date" class="form-control" />
+            <InputDate @bind-Value="editingReceipt.Date" class="form-control" />
         </div>
 
         <table class="table table-bordered">
             <thead>
                 <tr>
-                    <th>
-                        <button type="button" class="btn btn-sm btn-success" @onclick="AddNewItem">+</button>
-                    </th>
+                    <th><button type="button" class="btn btn-sm btn-success" @onclick="AddNewItem">+</button></th>
                     <th>Ресурс</th>
                     <th>Единица измерения</th>
                     <th>Количество</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var item in newReceipt.Items)
+                @foreach (var item in editingReceipt.Items)
                 {
                     <tr>
                         <td>
@@ -105,7 +103,7 @@
                         </td>
                     </tr>
                 }
-                @if (!newReceipt.Items.Any())
+                @if (!editingReceipt.Items.Any())
                 {
                     <tr>
                         <td colspan="4" class="text-center">Нет позиций. Нажмите "+" чтобы добавить.</td>
@@ -113,6 +111,9 @@
                 }
             </tbody>
         </table>
+
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+        <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Отмена</button>
     </EditForm>
 }
 else if (receipts == null)
@@ -142,7 +143,7 @@ else
                 {
                     foreach (var item in receipt.Items)
                     {
-                        <tr>
+                        <tr @ondblclick="() => EditReceipt(receipt)">
                             <td>@receipt.Number</td>
                             <td>@receipt.Date.ToShortDateString()</td>
                             <td>@item.ResourceName</td>
@@ -153,7 +154,7 @@ else
                 }
                 else
                 {
-                    <tr>
+                    <tr @ondblclick="() => EditReceipt(receipt)">
                         <td>@receipt.Number</td>
                         <td>@receipt.Date.ToShortDateString()</td>
                         <td></td>
@@ -169,6 +170,7 @@ else
 @code {
     private List<ReceiptDto>? receipts;
     private bool isAdding = false;
+    private bool isEditing = false;
 
     private NewReceiptModel newReceipt = new();
 
@@ -180,6 +182,7 @@ else
     private List<int> selectedUnitIds = new();
     private List<string> selectedNumbers = new();
     private List<string> allDocumentNumbers = new();
+    private NewReceiptModel editingReceipt = new();
 
     private void OnNumbersChanged(ChangeEventArgs e)
     {
@@ -302,6 +305,7 @@ else
     private void ShowAddReceipt()
     {
         isAdding = true;
+        isEditing = false;
         newReceipt = new NewReceiptModel
             {
                 Date = DateTime.Today,
@@ -309,13 +313,41 @@ else
             };
     }
 
+    private void EditReceipt(ReceiptDto receipt)
+    {
+        isEditing = true;
+        isAdding = false;
+
+        editingReceipt = new NewReceiptModel
+            {
+                Id = receipt.Id,
+                Number = receipt.Number,
+                Date = receipt.Date,
+                Items = receipt.Items.Select(i => new ReceiptItemModel
+                {
+                    ResourceId = resources.FirstOrDefault(r => r.Name == i.ResourceName)?.Id ?? 0,
+                    UnitId = units.FirstOrDefault(u => u.Name == i.UnitName)?.Id ?? 0,
+                    Quantity = i.Quantity
+                }).ToList()
+            };
+    }
+
     private async Task SaveReceipt()
     {
-        var response = await Http.PostAsJsonAsync("api/receipts", newReceipt);
+        HttpResponseMessage response;
+        if (isAdding)
+        {
+            response = await Http.PostAsJsonAsync("api/receipts", editingReceipt);
+        }
+        else // isEditing
+        {
+            response = await Http.PutAsJsonAsync($"api/receipts/{editingReceipt.Id}", editingReceipt);
+        }
 
         if (response.IsSuccessStatusCode)
         {
             isAdding = false;
+            isEditing = false;
             await LoadReceipts();
             StateHasChanged();
         }
@@ -334,6 +366,13 @@ else
     private void RemoveItem(ReceiptItemModel item)
     {
         newReceipt.Items.Remove(item);
+    }
+
+    private void CancelEdit()
+    {
+        isAdding = false;
+        isEditing = false;
+        editingReceipt = new NewReceiptModel();
     }
 
     private void OnAddButtonClick()
@@ -366,6 +405,7 @@ else
 
     public class NewReceiptModel
     {
+        public int Id { get; set; }
         public string Number { get; set; } = "";
         public DateTime Date { get; set; }
         public List<ReceiptItemModel> Items { get; set; } = new();
