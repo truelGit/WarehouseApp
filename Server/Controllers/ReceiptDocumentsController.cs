@@ -44,6 +44,50 @@ namespace WarehouseApp.Server.Controllers
 			return Ok(result);
 		}
 
+		[HttpGet("filtered")]
+		public async Task<IActionResult> GetFilteredReceipts(
+	[FromQuery] DateTime? from,
+	[FromQuery] DateTime? to,
+	[FromQuery] List<string>? numbers,
+	[FromQuery] List<int>? resourceIds,
+	[FromQuery] List<int>? unitIds)
+		{
+			var query = _context.ReceiptDocuments
+				.Include(r => r.Items)
+					.ThenInclude(i => i.Resource)
+				.Include(r => r.Items)
+					.ThenInclude(i => i.Unit)
+				.AsQueryable();
+
+			if (from.HasValue)
+				query = query.Where(r => r.Date >= from.Value);
+			if (to.HasValue)
+				query = query.Where(r => r.Date <= to.Value);
+			if (numbers?.Count > 0)
+				query = query.Where(r => numbers.Contains(r.Number));
+			if (resourceIds?.Count > 0)
+				query = query.Where(r => r.Items.Any(i => resourceIds.Contains(i.ResourceId)));
+			if (unitIds?.Count > 0)
+				query = query.Where(r => r.Items.Any(i => unitIds.Contains(i.UnitId)));
+
+			var receipts = await query.OrderByDescending(r => r.Date).ToListAsync();
+
+			var result = receipts.Select(r => new ReceiptDto
+			{
+				Id = r.Id,
+				Number = r.Number,
+				Date = r.Date,
+				Items = r.Items.Select(i => new ReceiptItemDto
+				{
+					ResourceName = i.Resource?.Name ?? "",
+					UnitName = i.Unit?.Name ?? "",
+					Quantity = i.Quantity
+				}).ToList()
+			}).ToList();
+
+			return Ok(result);
+		}
+
 		[HttpPost]
 		public async Task<IActionResult> CreateReceipt([FromBody] NewReceiptModel newReceipt)
 		{
