@@ -29,6 +29,10 @@
 }
 else if (selectedResource != null)
 {
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-warning">@errorMessage</div>
+    }
     <EditForm Model="selectedResource" OnValidSubmit="UpdateResource">
         <DataAnnotationsValidator />
         <ValidationSummary />
@@ -221,17 +225,18 @@ else
             if (response.IsSuccessStatusCode)
             {
                 selectedResource = null;
+                errorMessage = null;
                 await LoadResources();
             }
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Error deleting resource: {error}");
+                errorMessage = $"Невозможно удалить ресурс: {error}";
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Exception deleting resource: {ex.Message}");
+            errorMessage = $"Ошибка при удалении: {ex.Message}";
         }
     }
 

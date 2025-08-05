@@ -32,6 +32,10 @@
 }
 else if (selectedUnit != null)
 {
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-warning">@errorMessage</div>
+    }
     <EditForm Model="selectedUnit" OnValidSubmit="UpdateUnit">
         <DataAnnotationsValidator />
         <ValidationSummary />
@@ -121,6 +125,7 @@ else
         isAdding = true;
         selectedUnit = null;
         newUnit = new Unit();
+        errorMessage = null;
     }
 
     private void CancelAdd()
@@ -190,7 +195,8 @@ else
 
     private async Task DeleteUnit()
     {
-        if (selectedUnit == null) return;
+        if (selectedUnit == null)
+            return;
 
         try
         {
@@ -198,17 +204,18 @@ else
             if (response.IsSuccessStatusCode)
             {
                 selectedUnit = null;
+                errorMessage = null;
                 await LoadUnits();
             }
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Ошибка удаления: {error}");
+                errorMessage = $"Невозможно удалить единицу измерения: {error}";
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Исключение при удалении: {ex.Message}");
+            errorMessage = $"Ошибка при удалении: {ex.Message}";
         }
     }
 

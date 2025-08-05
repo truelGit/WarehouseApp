@@ -105,6 +105,13 @@ public class ResourcesController : ControllerBase
 		if (resource == null)
 			return NotFound();
 
+		// Проверка: используется ли в поступлениях
+		bool isUsed = await _context.ReceiptItems.AnyAsync(i => i.ResourceId == id);
+		if (isUsed)
+		{
+			return BadRequest("Невозможно удалить ресурс — он используется.");
+		}
+
 		_context.Resources.Remove(resource);
 		await _context.SaveChangesAsync();
 
