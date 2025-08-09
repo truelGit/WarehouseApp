@@ -50,6 +50,10 @@
 
 @if (isEditing || isAdding)
 {
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-warning">@errorMessage</div>
+    }
     <EditForm Model="editingReceipt" OnValidSubmit="SaveReceipt">
         <DataAnnotationsValidator />
         <ValidationSummary />
@@ -183,6 +187,7 @@ else
     private List<string> selectedNumbers = new();
     private List<string> allDocumentNumbers = new();
     private NewReceiptModel editingReceipt = new();
+    private string? errorMessage;
 
     private void OnNumbersChanged(ChangeEventArgs e)
     {
@@ -348,13 +353,18 @@ else
         {
             isAdding = false;
             isEditing = false;
+            errorMessage = null; 
             await LoadReceipts();
             StateHasChanged();
+        }
+        else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            errorMessage = "В системе уже зарегистрирован документ поступления с таким номером.";
         }
         else
         {
             var error = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"Ошибка при сохранении: {error}");
+            errorMessage = $"Ошибка при сохранении: {error}";
         }
     }
 
@@ -377,6 +387,7 @@ else
 
     private void OnAddButtonClick()
     {
+        errorMessage = null;
         if (!isAdding)
         {
             ShowAddReceipt();

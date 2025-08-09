@@ -127,6 +127,11 @@ namespace WarehouseApp.Server.Controllers
 				return BadRequest(ModelState);
 			}
 
+			bool exists = await _context.ReceiptDocuments.AnyAsync(r => r.Number == newReceipt.Number);
+
+			if (exists)
+				return Conflict(new { error = "Документ поступления с таким номером уже существует." });
+
 			var receiptEntity = new ReceiptDocument
 			{
 				Number = newReceipt.Number,
