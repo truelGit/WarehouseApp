@@ -1,6 +1,5 @@
 ﻿@using System.ComponentModel.DataAnnotations
 @using WarehouseApp.Server.Models
-@using static WarehouseApp.Client.Pages.Receipts
 
 <EditForm Model="Model" OnValidSubmit="OnValidSubmit">
     <DataAnnotationsValidator />
@@ -35,7 +34,7 @@
                     <td>
                         <select class="form-select" @bind="item.ResourceId" required>
                             <option value="">-- Выберите ресурс --</option>
-                            @foreach (var res in Resources)
+                            @foreach (var res in FilteredResources)
                             {
                                 <option value="@res.Id">@res.Name</option>
                             }
@@ -44,7 +43,7 @@
                     <td>
                         <select class="form-select" @bind="item.UnitId" required>
                             <option value="">-- Выберите ед. измерения --</option>
-                            @foreach (var unit in Units)
+                            @foreach (var unit in FilteredUnits)
                             {
                                 <option value="@unit.Id">@unit.Name</option>
                             }
@@ -74,6 +73,12 @@
     [Parameter] public List<Unit> Units { get; set; } = new();
     [Parameter] public EventCallback OnValidSubmit { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
+
+    private IEnumerable<Resource> FilteredResources => Resources
+        .Where(r => !r.IsArchived || Model.Items.Any(i => i.ResourceId == r.Id));
+
+    private IEnumerable<Unit> FilteredUnits => Units
+        .Where(u => !u.IsArchived || Model.Items.Any(i => i.UnitId == u.Id));
 
     private void AddNewItem()
     {
