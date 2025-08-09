@@ -69,7 +69,7 @@ namespace WarehouseApp.Server.Controllers
 			if (unit == null)
 				return NotFound();
 
-			bool isUsed = await _context.ReceiptItems.AnyAsync(i => i.ResourceId == id);
+			bool isUsed = await _context.ReceiptItems.AnyAsync(i => i.UnitId == id);
 			if (isUsed)
 			{
 				return BadRequest("Невозможно удалить единицу измерения — используется где-то.");
