@@ -16,33 +16,15 @@
     </div>
     <div class="col">
         <label>Номер поступления:</label>
-        <select class="form-select" @onchange="OnNumbersChanged">
-            <option value="">Все</option>
-            @foreach (var num in allDocumentNumbers)
-            {
-                <option value="@num" selected="@selectedNumbers.Contains(num)">@num</option>
-            }
-        </select>
+        <MultiSelect Options="allDocumentNumbers" SelectedItems="@selectedNumbers" SelectedItemsChanged="OnSelectedNumbersChanged" />
     </div>
     <div class="col">
         <label>Ресурс:</label>
-        <select class="form-select" @onchange="OnResourcesChanged">
-            <option value="">Все</option>
-            @foreach (var res in resources)
-            {
-                <option value="@res.Id" selected="@selectedResourceIds.Contains(res.Id)">@res.Name</option>
-            }
-        </select>
+        <MultiSelect Options="resources.Select(r => r.Name).ToList()" SelectedItems="@selectedResourceNames" SelectedItemsChanged="OnSelectedResourcesChanged" />
     </div>
     <div class="col">
         <label>Единицы измерения:</label>
-        <select class="form-select" @onchange="OnUnitsChanged">
-            <option value="">Все</option>
-            @foreach (var unit in units)
-            {
-                <option value="@unit.Id" selected="@selectedUnitIds.Contains(unit.Id)">@unit.Name</option>
-            }
-        </select>
+        <MultiSelect Options="units.Select(u => u.Name).ToList()" SelectedItems="@selectedUnitNames" SelectedItemsChanged="OnSelectedUnitsChanged" />
     </div>
 </div>
 
@@ -109,8 +91,11 @@ else
     private DateTime? filterTo;
     private List<int> selectedResourceIds = new();
     private List<int> selectedUnitIds = new();
-    private List<string> selectedNumbers = new();
     private List<string> allDocumentNumbers = new();
+
+    private List<string> selectedNumbers = new();
+    private List<string> selectedResourceNames = new();
+    private List<string> selectedUnitNames = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -139,25 +124,37 @@ else
 
     private async Task ApplyFilters()
     {
-        var queryParams = new Dictionary<string, string>();
+        var queryParams = new List<string>();
 
         if (filterFrom.HasValue)
-            queryParams["from"] = filterFrom.Value.ToString("yyyy-MM-dd");
+            queryParams.Add($"from={Uri.EscapeDataString(filterFrom.Value.ToString("yyyy-MM-dd"))}");
         if (filterTo.HasValue)
-            queryParams["to"] = filterTo.Value.ToString("yyyy-MM-dd");
+            queryParams.Add($"to={Uri.EscapeDataString(filterTo.Value.ToString("yyyy-MM-dd"))}");
 
         foreach (var num in selectedNumbers)
-            queryParams.Add("numbers", num);
+            queryParams.Add($"numbers={Uri.EscapeDataString(num)}");
 
-        foreach (var id in selectedUnitIds)
-            queryParams.Add("unitIds", id.ToString());
+        var selectedResourceIds = resources
+            .Where(r => selectedResourceNames.Contains(r.Name))
+            .Select(r => r.Id)
+            .ToList();
+
+        var selectedUnitIds = units
+            .Where(u => selectedUnitNames.Contains(u.Name))
+            .Select(u => u.Id)
+            .ToList();
 
         foreach (var id in selectedResourceIds)
-            queryParams.Add("resourceIds", id.ToString());
+            queryParams.Add($"resourceIds={id}");
 
-        var query = string.Join("&", queryParams.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
+        foreach (var id in selectedUnitIds)
+            queryParams.Add($"unitIds={id}");
+
+        var query = string.Join("&", queryParams);
+
         receipts = await Http.GetFromJsonAsync<List<ReceiptDto>>($"api/receipts/filtered?{query}");
     }
+
 
     private void EditReceipt(int id)
     {
@@ -169,72 +166,18 @@ else
         Navigation.NavigateTo($"/receipts/create");
     }
 
-    private void OnNumbersChanged(ChangeEventArgs e)
+    private void OnSelectedNumbersChanged(List<string> selected)
     {
-        var input = e;
-        var selected = new List<string>();
-
-        if (input.Value is not null)
-        {
-            selected.Add(input.Value.ToString()!);
-        }
-
         selectedNumbers = selected;
     }
 
-    private void OnResourcesChanged(ChangeEventArgs e)
+    private void OnSelectedResourcesChanged(List<string> selected)
     {
-        if (e.Value is not null)
-        {
-            var selectedOptions = (e.Value as IEnumerable<string>)?.ToList();
-
-            if (selectedOptions != null)
-            {
-                selectedResourceIds = selectedOptions.Select(int.Parse).ToList();
-            }
-            else
-            {
-                if (e.Value is string singleValue)
-                {
-                    selectedResourceIds = new List<int> { int.Parse(singleValue) };
-                }
-                else
-                {
-                    selectedResourceIds = new List<int>();
-                }
-            }
-        }
-        else
-        {
-            selectedResourceIds.Clear();
-        }
+        selectedResourceNames = selected;
     }
 
-    private void OnUnitsChanged(ChangeEventArgs e)
+    private void OnSelectedUnitsChanged(List<string> selected)
     {
-        if (e.Value is not null)
-        {
-            var selectedOptions = (e.Value as IEnumerable<string>)?.ToList();
-
-            if (selectedOptions != null)
-            {
-                selectedUnitIds = selectedOptions.Select(int.Parse).ToList();
-            }
-            else
-            {
-                if (e.Value is string singleValue)
-                {
-                    selectedUnitIds = new List<int> { int.Parse(singleValue) };
-                }
-                else
-                {
-                    selectedUnitIds = new List<int>();
-                }
-            }
-        }
-        else
-        {
-            selectedUnitIds.Clear();
-        }
+        selectedUnitNames = selected;
     }
 }
