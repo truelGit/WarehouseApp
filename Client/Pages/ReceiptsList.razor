@@ -1,0 +1,240 @@
+﻿@page "/receipts"
+@using WarehouseApp.Server.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<h2>Поступления</h2>
+
+<div class="row mb-3">
+    <div class="col">
+        <label>Период с:</label>
+        <InputDate @bind-Value="filterFrom" class="form-control" />
+    </div>
+    <div class="col">
+        <label>Период по:</label>
+        <InputDate @bind-Value="filterTo" class="form-control" />
+    </div>
+    <div class="col">
+        <label>Номер поступления:</label>
+        <select class="form-select" @onchange="OnNumbersChanged">
+            <option value="">Все</option>
+            @foreach (var num in allDocumentNumbers)
+            {
+                <option value="@num" selected="@selectedNumbers.Contains(num)">@num</option>
+            }
+        </select>
+    </div>
+    <div class="col">
+        <label>Ресурс:</label>
+        <select class="form-select" @onchange="OnResourcesChanged">
+            <option value="">Все</option>
+            @foreach (var res in resources)
+            {
+                <option value="@res.Id" selected="@selectedResourceIds.Contains(res.Id)">@res.Name</option>
+            }
+        </select>
+    </div>
+    <div class="col">
+        <label>Единицы измерения:</label>
+        <select class="form-select" @onchange="OnUnitsChanged">
+            <option value="">Все</option>
+            @foreach (var unit in units)
+            {
+                <option value="@unit.Id" selected="@selectedUnitIds.Contains(unit.Id)">@unit.Name</option>
+            }
+        </select>
+    </div>
+</div>
+
+<button class="btn btn-primary mb-3" @onclick="ApplyFilters">Применить фильтры</button>
+<button class="btn btn-success mb-3" @onclick="CreateNewReceipt">Создать новое поступление</button>
+
+@if (receipts == null)
+{
+    <p>Загрузка...</p>
+}
+else if (!receipts.Any())
+{
+    <p>Нет данных.</p>
+}
+else
+{
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Номер</th>
+                <th>Дата</th>
+                <th>Ресурс</th>
+                <th>Ед. изм.</th>
+                <th>Количество</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var receipt in receipts)
+            {
+                if (receipt.Items != null && receipt.Items.Any())
+                {
+                    foreach (var item in receipt.Items)
+                    {
+                        <tr @ondblclick="() => EditReceipt(receipt.Id)">
+                            <td>@receipt.Number</td>
+                            <td>@receipt.Date.ToShortDateString()</td>
+                            <td>@item.ResourceName</td>
+                            <td>@item.UnitName</td>
+                            <td>@item.Quantity</td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr @ondblclick="() => EditReceipt(receipt.Id)">
+                        <td>@receipt.Number</td>
+                        <td>@receipt.Date.ToShortDateString()</td>
+                        <td></td>
+                        <td></td>
+                        <td>0</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ReceiptDto>? receipts;
+    private List<Resource> resources = new();
+    private List<Unit> units = new();
+
+    private DateTime? filterFrom;
+    private DateTime? filterTo;
+    private List<int> selectedResourceIds = new();
+    private List<int> selectedUnitIds = new();
+    private List<string> selectedNumbers = new();
+    private List<string> allDocumentNumbers = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadResourcesAndUnits();
+        await LoadReceipts();
+    }
+
+    private async Task LoadReceipts()
+    {
+        receipts = await Http.GetFromJsonAsync<List<ReceiptDto>>("api/receipts");
+        if (receipts != null)
+        {
+            allDocumentNumbers = receipts
+                .Select(r => r.Number)
+                .Distinct()
+                .OrderBy(n => n)
+                .ToList();
+        }
+    }
+
+    private async Task LoadResourcesAndUnits()
+    {
+        resources = await Http.GetFromJsonAsync<List<Resource>>("api/resources") ?? new List<Resource>();
+        units = await Http.GetFromJsonAsync<List<Unit>>("api/units") ?? new List<Unit>();
+    }
+
+    private async Task ApplyFilters()
+    {
+        var queryParams = new Dictionary<string, string>();
+
+        if (filterFrom.HasValue)
+            queryParams["from"] = filterFrom.Value.ToString("yyyy-MM-dd");
+        if (filterTo.HasValue)
+            queryParams["to"] = filterTo.Value.ToString("yyyy-MM-dd");
+
+        foreach (var num in selectedNumbers)
+            queryParams.Add("numbers", num);
+
+        foreach (var id in selectedUnitIds)
+            queryParams.Add("unitIds", id.ToString());
+
+        foreach (var id in selectedResourceIds)
+            queryParams.Add("resourceIds", id.ToString());
+
+        var query = string.Join("&", queryParams.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
+        receipts = await Http.GetFromJsonAsync<List<ReceiptDto>>($"api/receipts/filtered?{query}");
+    }
+
+    private void EditReceipt(int id)
+    {
+        Navigation.NavigateTo($"/receipts/edit/{id}");
+    }
+
+    private void CreateNewReceipt()
+    {
+        Navigation.NavigateTo($"/receipts/create");
+    }
+
+    private void OnNumbersChanged(ChangeEventArgs e)
+    {
+        var input = e;
+        var selected = new List<string>();
+
+        if (input.Value is not null)
+        {
+            selected.Add(input.Value.ToString()!);
+        }
+
+        selectedNumbers = selected;
+    }
+
+    private void OnResourcesChanged(ChangeEventArgs e)
+    {
+        if (e.Value is not null)
+        {
+            var selectedOptions = (e.Value as IEnumerable<string>)?.ToList();
+
+            if (selectedOptions != null)
+            {
+                selectedResourceIds = selectedOptions.Select(int.Parse).ToList();
+            }
+            else
+            {
+                if (e.Value is string singleValue)
+                {
+                    selectedResourceIds = new List<int> { int.Parse(singleValue) };
+                }
+                else
+                {
+                    selectedResourceIds = new List<int>();
+                }
+            }
+        }
+        else
+        {
+            selectedResourceIds.Clear();
+        }
+    }
+
+    private void OnUnitsChanged(ChangeEventArgs e)
+    {
+        if (e.Value is not null)
+        {
+            var selectedOptions = (e.Value as IEnumerable<string>)?.ToList();
+
+            if (selectedOptions != null)
+            {
+                selectedUnitIds = selectedOptions.Select(int.Parse).ToList();
+            }
+            else
+            {
+                if (e.Value is string singleValue)
+                {
+                    selectedUnitIds = new List<int> { int.Parse(singleValue) };
+                }
+                else
+                {
+                    selectedUnitIds = new List<int>();
+                }
+            }
+        }
+        else
+        {
+            selectedUnitIds.Clear();
+        }
+    }
+}

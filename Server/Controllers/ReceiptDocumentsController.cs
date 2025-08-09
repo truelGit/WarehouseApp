@@ -118,6 +118,36 @@ namespace WarehouseApp.Server.Controllers
 			return NoContent();
 		}
 
+		[HttpGet("GetReceiptById/{id}")]
+		public async Task<IActionResult> GetReceiptById(int id)
+		{
+			var receipt = await _context.ReceiptDocuments
+				.Include(r => r.Items)
+					.ThenInclude(i => i.Resource)
+				.Include(r => r.Items)
+					.ThenInclude(i => i.Unit)
+				.FirstOrDefaultAsync(r => r.Id == id);
+
+			if (receipt == null)
+				return NotFound();
+
+			var result = new ReceiptDto
+			{
+				Id = receipt.Id,
+				Number = receipt.Number,
+				Date = receipt.Date,
+				Items = receipt.Items.Select(i => new ReceiptItemDto
+				{
+					ResourceName = i.Resource?.Name ?? "",
+					UnitName = i.Unit?.Name ?? "",
+					Quantity = i.Quantity
+				}).ToList()
+			};
+
+			return Ok(result);
+		}
+
+
 
 		[HttpPost]
 		public async Task<IActionResult> CreateReceipt([FromBody] NewReceiptModel newReceipt)

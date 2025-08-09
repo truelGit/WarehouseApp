@@ -1,0 +1,87 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using WarehouseApp.Server.Models
+@using static WarehouseApp.Client.Pages.Receipts
+
+<EditForm Model="Model" OnValidSubmit="OnValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label>Номер</label>
+        <InputText @bind-Value="Model.Number" class="form-control" />
+    </div>
+
+    <div class="mb-3">
+        <label>Дата</label>
+        <InputDate @bind-Value="Model.Date" class="form-control" />
+    </div>
+
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th><button type="button" class="btn btn-sm btn-success" @onclick="AddNewItem">+</button></th>
+                <th>Ресурс</th>
+                <th>Единица измерения</th>
+                <th>Количество</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveItem(item)">-</button>
+                    </td>
+                    <td>
+                        <select class="form-select" @bind="item.ResourceId" required>
+                            <option value="">-- Выберите ресурс --</option>
+                            @foreach (var res in Resources)
+                            {
+                                <option value="@res.Id">@res.Name</option>
+                            }
+                        </select>
+                    </td>
+                    <td>
+                        <select class="form-select" @bind="item.UnitId" required>
+                            <option value="">-- Выберите ед. измерения --</option>
+                            @foreach (var unit in Units)
+                            {
+                                <option value="@unit.Id">@unit.Name</option>
+                            }
+                        </select>
+                    </td>
+                    <td>
+                        <InputNumber @bind-Value="item.Quantity" class="form-control" min="0" step="0.01" required />
+                    </td>
+                </tr>
+            }
+            @if (!Model.Items.Any())
+            {
+                <tr>
+                    <td colspan="4" class="text-center">Нет позиций. Нажмите "+" чтобы добавить.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button type="submit" class="btn btn-primary">Сохранить</button>
+    <button type="button" class="btn btn-secondary" @onclick="OnCancel">Отмена</button>
+</EditForm>
+
+@code {
+    [Parameter] public NewReceiptModel Model { get; set; } = new();
+    [Parameter] public List<Resource> Resources { get; set; } = new();
+    [Parameter] public List<Unit> Units { get; set; } = new();
+    [Parameter] public EventCallback OnValidSubmit { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private void AddNewItem()
+    {
+        Model.Items.Add(new ReceiptItemModel());
+    }
+
+    private void RemoveItem(ReceiptItemModel item)
+    {
+        Model.Items.Remove(item);
+    }
+}

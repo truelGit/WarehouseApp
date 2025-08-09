@@ -1,0 +1,111 @@
+﻿@page "/receipts/edit/{ReceiptId:int}"
+@page "/receipts/create"
+@using WarehouseApp.Server.Models
+@using static WarehouseApp.Client.Pages.ReceiptsList
+@using static WarehouseApp.Client.Pages.Receipts
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<h2>@(IsNew ? "Создание поступления" : "Редактирование поступления")</h2>
+
+@if (loading)
+{
+    <p>Загрузка...</p>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-warning">@errorMessage</div>
+    }
+
+    <ReceiptForm Model="editingReceipt" Resources="resources" Units="units" OnValidSubmit="SaveReceipt" OnCancel="Cancel" />
+}
+
+@code {
+    [Parameter] public int? ReceiptId { get; set; }
+    private bool IsNew => !ReceiptId.HasValue;
+
+    private NewReceiptModel editingReceipt = new();
+    private List<Resource> resources = new();
+    private List<Unit> units = new();
+
+    private bool loading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        resources = await Http.GetFromJsonAsync<List<Resource>>("api/resources") ?? new List<Resource>();
+        units = await Http.GetFromJsonAsync<List<Unit>>("api/units") ?? new List<Unit>();
+
+        if (IsNew)
+        {
+            editingReceipt = new NewReceiptModel
+            {
+                Date = DateTime.Today,
+                Items = new List<ReceiptItemModel>()
+            };
+            loading = false;
+        }
+        else
+        {
+            var response = await Http.GetAsync($"api/receipts/GetReceiptById/{ReceiptId.Value}");
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = $"Ошибка запроса: {response.StatusCode}";
+                return;
+            }
+
+            var receipt = await response.Content.ReadFromJsonAsync<ReceiptDto>();
+            if (receipt != null)
+            {
+                editingReceipt = new NewReceiptModel
+                {
+                    Id = receipt.Id,
+                    Number = receipt.Number,
+                    Date = receipt.Date,
+                    Items = receipt.Items.Select(i => new ReceiptItemModel
+                    {
+                        ResourceId = resources.FirstOrDefault(r => r.Name == i.ResourceName)?.Id ?? 0,
+                        UnitId = units.FirstOrDefault(u => u.Name == i.UnitName)?.Id ?? 0,
+                        Quantity = i.Quantity
+                    }).ToList()
+                };
+            }
+            loading = false;
+        }
+    }
+
+    private async Task SaveReceipt()
+    {
+        HttpResponseMessage response;
+
+        if (IsNew)
+        {
+            response = await Http.PostAsJsonAsync("api/receipts", editingReceipt);
+        }
+        else
+        {
+            response = await Http.PutAsJsonAsync($"api/receipts/{editingReceipt.Id}", editingReceipt);
+        }
+
+        if (response.IsSuccessStatusCode)
+        {
+            Navigation.NavigateTo("/receipts");
+        }
+        else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            errorMessage = "В системе уже зарегистрирован документ поступления с таким номером.";
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            errorMessage = $"Ошибка при сохранении: {error}";
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/receipts");
+    }
+}
