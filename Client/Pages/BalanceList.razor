@@ -1,0 +1,122 @@
+﻿@page "/balance"
+@using WarehouseApp.Server.Models
+@using WarehouseApp.Shared.Dto
+@inject HttpClient Http
+
+<h2>Баланс склада</h2>
+
+<div class="row mb-3">
+    <div class="col-4">
+        <label>Ресурс:</label>
+        <select class="form-select" @bind="SelectedResourceId">
+            <option value="">Все</option>
+            @foreach (var r in resources)
+            {
+                <option value="@r.Id">@r.Name</option>
+            }
+        </select>
+    </div>
+    <div class="col-4">
+        <label>Единица измерения:</label>
+        <select class="form-select" @bind="SelectedUnitId">
+            <option value="">Все</option>
+            @foreach (var u in units)
+            {
+                <option value="@u.Id">@u.Name</option>
+            }
+        </select>
+    </div>
+</div>
+
+@if (balances == null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else if (!balances.Any())
+{
+    <p>Данные не найдены.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Ресурс</th>
+                <th>Единица измерения</th>
+                <th>Количество</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var b in balances)
+            {
+                <tr>
+                    <td>@b.ResourceName</td>
+                    <td>@b.UnitName</td>
+                    <td>@b.Quantity</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<BalanceDto> balances;
+    private List<Resource> resources = new();
+    private List<Unit> units = new();
+
+    private int? selectedResourceId;
+    private int? selectedUnitId;
+
+    private int? SelectedResourceId
+    {
+        get => selectedResourceId;
+        set
+        {
+            if (selectedResourceId != value)
+            {
+                selectedResourceId = value;
+                OnFilterChanged();
+            }
+        }
+    }
+
+    private int? SelectedUnitId
+    {
+        get => selectedUnitId;
+        set
+        {
+            if (selectedUnitId != value)
+            {
+                selectedUnitId = value;
+                OnFilterChanged();
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        resources = await Http.GetFromJsonAsync<List<Resource>>("api/resources");
+        units = await Http.GetFromJsonAsync<List<Unit>>("api/units");
+
+        await LoadBalances();
+    }
+
+    private async Task LoadBalances()
+    {
+        var url = "api/balance";
+        var queryParams = new List<string>();
+        if (selectedResourceId.HasValue)
+            queryParams.Add($"resourceId={selectedResourceId.Value}");
+        if (selectedUnitId.HasValue)
+            queryParams.Add($"unitId={selectedUnitId.Value}");
+        if (queryParams.Count > 0)
+            url += "?" + string.Join("&", queryParams);
+
+        balances = await Http.GetFromJsonAsync<List<BalanceDto>>(url);
+    }
+
+    private async Task OnFilterChanged()
+    {
+        await LoadBalances();
+    }
+}
