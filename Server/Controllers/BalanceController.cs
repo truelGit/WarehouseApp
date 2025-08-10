@@ -17,18 +17,18 @@ namespace WarehouseApp.Server.Controllers
 		}
 
 		[HttpGet]
-		public async Task<IActionResult> GetBalance([FromQuery] int? resourceId, [FromQuery] int? unitId)
+		public async Task<IActionResult> GetBalance([FromQuery] List<int> resourceId, [FromQuery] List<int> unitId)
 		{
 			var query = _context.Balances
 				.Include(b => b.Resource)
 				.Include(b => b.Unit)
 				.AsQueryable();
 
-			if (resourceId.HasValue)
-				query = query.Where(b => b.ResourceId == resourceId.Value);
+			if (resourceId != null && resourceId.Any())
+				query = query.Where(b => resourceId.Contains(b.ResourceId));
 
-			if (unitId.HasValue)
-				query = query.Where(b => b.UnitId == unitId.Value);
+			if (unitId != null && unitId.Any())
+				query = query.Where(b => unitId.Contains(b.UnitId));
 
 			var balances = await query
 				.Select(b => new BalanceDto
