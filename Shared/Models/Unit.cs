@@ -1,4 +1,4 @@
-﻿namespace WarehouseApp.Server.Models;
+﻿namespace WarehouseApp.Shared.Models;
 
 public class Unit
 {

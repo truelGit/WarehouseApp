@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -36,4 +37,44 @@ public class ShipmentStatusUpdateDto
 public class ErrorDto
 {
 	public string? Error { get; set; }
+}
+
+public class ShipmentCreateDto
+{
+	[Required]
+	public string Number { get; set; } = null!;
+
+	[Required(ErrorMessage = "Клиент обязателен")]
+	public int ClientId { get; set; }
+
+	[Required(ErrorMessage = "Дата обязательна")]
+	public DateTime Date { get; set; }
+
+	[MinLength(1, ErrorMessage = "Документ не может быть пустым")]
+	public List<ShipmentItemCreateDto> Items { get; set; } = new();
+}
+
+public class ShipmentItemCreateDto
+{
+	public int ResourceId { get; set; }
+	public int UnitId { get; set; }
+	public decimal Quantity { get; set; }
+}
+
+public class ClientDto
+{
+	public int Id { get; set; }
+	public string Name { get; set; } = "";
+}
+
+public class ResourceDto
+{
+	public int Id { get; set; }
+	public string Name { get; set; } = "";
+}
+
+public class UnitDto
+{
+	public int Id { get; set; }
+	public string Name { get; set; } = "";
 }

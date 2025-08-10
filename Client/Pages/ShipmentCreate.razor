@@ -1,0 +1,140 @@
+﻿@using WarehouseApp.Server.Models
+@using WarehouseApp.Shared.Models
+@using static System.Net.WebRequestMethods
+@inject NavigationManager Navigation
+@inject HttpClient Http
+
+<h3>Создать новую отгрузку</h3>
+
+@if (clients == null || resources == null || units == null)
+{
+    <p><em>Загрузка данных...</em></p>
+}
+else
+{
+    <EditForm Model="newShipment" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label>Номер:</label>
+            <InputText class="form-control" @bind-Value="newShipment.Number" required />
+        </div>
+
+        <div class="mb-3">
+            <label>Клиент:</label>
+            <select class="form-select" @bind="newShipment.ClientId" required>
+                <option value="">Выберите клиента</option>
+                @foreach (var c in clients)
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label>Дата:</label>
+            <InputDate class="form-control" @bind-Value="newShipment.Date" />
+        </div>
+
+        <h5>Позиции отгрузки</h5>
+
+        @foreach (var item in newShipment.Items)
+        {
+            <div class="row mb-2 align-items-center">
+                <div class="col-4">
+                    <select class="form-select" @bind="item.ResourceId" required>
+                        <option value="">Ресурс</option>
+                        @foreach (var r in resources)
+                        {
+                            <option value="@r.Id">@r.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-3">
+                    <select class="form-select" @bind="item.UnitId" required>
+                        <option value="">Ед. измерения</option>
+                        @foreach (var u in units)
+                        {
+                            <option value="@u.Id">@u.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-3">
+                    <InputNumber class="form-control" @bind-Value="item.Quantity" min="0.01" step="0.01" required />
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-danger btn-sm" @onclick="() => RemoveItem(item)">Удалить</button>
+                </div>
+            </div>
+        }
+
+        <button type="button" class="btn btn-secondary mb-3" @onclick="AddItem">Добавить позицию</button>
+
+        <br />
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+        <button type="button" class="btn btn-secondary ms-2" @onclick="Cancel">Отмена</button>
+    </EditForm>
+}
+
+@code {
+    private List<ClientDto>? clients;
+    private List<ResourceDto>? resources;
+    private List<UnitDto>? units;
+
+    private ShipmentCreateDto newShipment = new()
+    {
+        Date = DateTime.Today,
+        Items = new List<ShipmentItemCreateDto>()
+    };
+
+    [Parameter]
+    public EventCallback OnCreated { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        clients = await Http.GetFromJsonAsync<List<ClientDto>>("api/clients");
+        resources = await Http.GetFromJsonAsync<List<ResourceDto>>("api/resources");
+        units = await Http.GetFromJsonAsync<List<UnitDto>>("api/units");
+    }
+
+    private void AddItem()
+    {
+        newShipment.Items.Add(new ShipmentItemCreateDto());
+    }
+
+    private void RemoveItem(ShipmentItemCreateDto item)
+    {
+        newShipment.Items.Remove(item);
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (newShipment.Items.Count == 0)
+        {
+            // Можно показать ошибку, что документ не может быть пустым
+            return;
+        }
+
+        var response = await Http.PostAsJsonAsync("api/shipments", newShipment);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await OnCreated.InvokeAsync();  // Вызываем callback вместо навигации
+        }
+        else
+        {
+            var error = await response.Content.ReadFromJsonAsync<ErrorDto>();
+            // Можно вывести ошибку пользователю, например alert или toast
+            Console.Error.WriteLine($"Ошибка: {error?.Error}");
+        }
+    }
+
+    private async Task Cancel()
+    {
+        await OnCancel.InvokeAsync();  // Вызываем callback вместо навигации
+    }
+}

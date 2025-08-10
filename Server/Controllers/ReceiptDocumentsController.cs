@@ -2,7 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using WarehouseApp.Server.Data;
 using WarehouseApp.Server.Models;
-using NewReceiptModel = WarehouseApp.Server.Models.NewReceiptModel;
+using WarehouseApp.Shared.Models;
+using NewReceiptModel = WarehouseApp.Shared.Models.NewReceiptModel;
 
 namespace WarehouseApp.Server.Controllers
 {

@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WarehouseApp.Server.Data;
-using WarehouseApp.Server.Models;
+using WarehouseApp.Shared.Models;
 
 namespace WarehouseApp.Server.Controllers;
 

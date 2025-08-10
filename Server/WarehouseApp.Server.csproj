@@ -26,4 +26,8 @@
     <ProjectReference Include="..\Shared\WarehouseApp.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Models\" />
+  </ItemGroup>
+
 </Project>

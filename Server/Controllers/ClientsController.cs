@@ -18,7 +18,7 @@ namespace WarehouseApp.Server.Controllers
 		[HttpGet]
 		public async Task<IActionResult> GetClients([FromQuery] bool? isArchived = null)
 		{
-			IQueryable<WarehouseApp.Server.Models.Client> query = _context.Clients;
+			IQueryable<Shared.Models.Client> query = _context.Clients;
 			if (isArchived.HasValue)
 				query = query.Where(c => c.IsArchived == isArchived.Value);
 
@@ -26,7 +26,7 @@ namespace WarehouseApp.Server.Controllers
 		}
 
 		[HttpPost]
-		public async Task<IActionResult> CreateClient(WarehouseApp.Server.Models.Client client)
+		public async Task<IActionResult> CreateClient(Shared.Models.Client client)
 		{
 			if (await _context.Clients.AnyAsync(c => c.Name == client.Name))
 				return Conflict("Client with this name already exists.");
@@ -38,7 +38,7 @@ namespace WarehouseApp.Server.Controllers
 		}
 
 		[HttpPut("{id}")]
-		public async Task<IActionResult> UpdateClient(int id, WarehouseApp.Server.Models.Client updatedClient)
+		public async Task<IActionResult> UpdateClient(int id, Shared.Models.Client updatedClient)
 		{
 			if (id != updatedClient.Id)
 				return BadRequest();

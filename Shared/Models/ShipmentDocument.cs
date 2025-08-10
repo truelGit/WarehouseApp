@@ -1,4 +1,6 @@
-﻿namespace WarehouseApp.Server.Models;
+﻿using WarehouseApp.Shared.Models;
+
+namespace WarehouseApp.Server.Models;
 
 public class ShipmentDocument
 {

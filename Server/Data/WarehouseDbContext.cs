@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using WarehouseApp.Server.Models;
+using WarehouseApp.Shared.Models;
 
 namespace WarehouseApp.Server.Data
 {
@@ -12,7 +13,7 @@ namespace WarehouseApp.Server.Data
 
 		public DbSet<Resource> Resources => Set<Resource>();
 		public DbSet<Unit> Units => Set<Unit>();
-		public DbSet<Models.Client> Clients => Set<Models.Client>();
+		public DbSet<Shared.Models.Client> Clients => Set<Shared.Models.Client>();
 		public DbSet<Balance> Balances => Set<Balance>();
 		public DbSet<ReceiptDocument> ReceiptDocuments => Set<ReceiptDocument>();
 		public DbSet<ReceiptItem> ReceiptItems => Set<ReceiptItem>();

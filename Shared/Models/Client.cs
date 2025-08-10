@@ -1,4 +1,6 @@
-﻿namespace WarehouseApp.Server.Models;
+﻿using WarehouseApp.Server.Models;
+
+namespace WarehouseApp.Shared.Models;
 
 public class Client
 {
