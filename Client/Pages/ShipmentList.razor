@@ -2,15 +2,45 @@
 @using WarehouseApp.Server.Models
 @using WarehouseApp.Shared.Dto
 @inject HttpClient Http
+@inject NavigationManager Navigation
 
 <h2>Документы отгрузок</h2>
-
-<button class="btn btn-primary mb-3" @onclick="ShowCreateForm">Добавить</button>
 
 @if (showCreateForm)
 {
     <ShipmentCreate OnCreated="OnShipmentCreated" OnCancel="HideCreateForm" />
 }
+
+<div class="row">
+    <div class="col">Период</div>
+    <div class="col">Номер отгрузки</div>
+    <div class="col">Клиент</div>
+    <div class="col">Ресурс</div>
+    <div class="col">Единица измерения</div>
+</div>
+<div class="row mb-3">
+    <div class="col">
+        <div class="input-group">
+            <InputDate @bind-Value="filterFrom" class="form-control" />
+            <InputDate @bind-Value="filterTo" class="form-control" />
+        </div>
+    </div>
+    <div class="col">
+        <MultiSelect Options="allShipmentNumbers" SelectedItems="@selectedNumbers" SelectedItemsChanged="OnSelectedNumbersChanged" />
+    </div>
+    <div class="col">
+        <MultiSelect Options="clients.Select(c => c.Name).ToList()" SelectedItems="@selectedClientNames" SelectedItemsChanged="OnSelectedClientsChanged" />
+    </div>
+    <div class="col">
+        <MultiSelect Options="resources.Select(r => r.Name).ToList()" SelectedItems="@selectedResourceNames" SelectedItemsChanged="OnSelectedResourcesChanged" />
+    </div>
+    <div class="col">
+        <MultiSelect Options="units.Select(u => u.Name).ToList()" SelectedItems="@selectedUnitNames" SelectedItemsChanged="OnSelectedUnitsChanged" />
+    </div>
+</div>
+
+<button class="btn btn-primary mb-3" @onclick="ShowCreateForm">Добавить</button>
+<button class="btn btn-success mb-3" @onclick="ApplyFilters">Применить</button>
 
 @if (shipments == null)
 {
@@ -64,14 +94,81 @@ else
     private List<ShipmentDto>? shipments;
     private bool showCreateForm = false;
 
+    private List<ClientDto> clients = new();
+    private List<ResourceDto> resources = new();
+    private List<UnitDto> units = new();
+
+    private DateTime? filterFrom;
+    private DateTime? filterTo;
+
+    private List<string> allShipmentNumbers = new();
+    private List<string> selectedNumbers = new();
+
+    private List<string> selectedClientNames = new();
+    private List<string> selectedResourceNames = new();
+    private List<string> selectedUnitNames = new();
+
     protected override async Task OnInitializedAsync()
     {
+        await LoadFiltersData();
         await LoadShipments();
+    }
+
+    private async Task LoadFiltersData()
+    {
+        clients = await Http.GetFromJsonAsync<List<ClientDto>>("api/clients") ?? new List<ClientDto>();
+        resources = await Http.GetFromJsonAsync<List<ResourceDto>>("api/resources") ?? new List<ResourceDto>();
+        units = await Http.GetFromJsonAsync<List<UnitDto>>("api/units") ?? new List<UnitDto>();
     }
 
     private async Task LoadShipments()
     {
         shipments = await Http.GetFromJsonAsync<List<ShipmentDto>>("api/shipments/GetShipments");
+        if (shipments != null)
+        {
+            allShipmentNumbers = shipments.Select(s => s.Number).Distinct().OrderBy(n => n).ToList();
+        }
+    }
+
+    private async Task ApplyFilters()
+    {
+        var queryParams = new List<string>();
+
+        if (filterFrom.HasValue)
+            queryParams.Add($"from={Uri.EscapeDataString(filterFrom.Value.ToString("yyyy-MM-dd"))}");
+        if (filterTo.HasValue)
+            queryParams.Add($"to={Uri.EscapeDataString(filterTo.Value.ToString("yyyy-MM-dd"))}");
+
+        foreach (var num in selectedNumbers)
+            queryParams.Add($"numbers={Uri.EscapeDataString(num)}");
+
+        var selectedClientIds = clients
+            .Where(c => selectedClientNames.Contains(c.Name))
+            .Select(c => c.Id)
+            .ToList();
+
+        foreach (var id in selectedClientIds)
+            queryParams.Add($"clientIds={id}");
+
+        var selectedResourceIds = resources
+            .Where(r => selectedResourceNames.Contains(r.Name))
+            .Select(r => r.Id)
+            .ToList();
+
+        foreach (var id in selectedResourceIds)
+            queryParams.Add($"resourceIds={id}");
+
+        var selectedUnitIds = units
+            .Where(u => selectedUnitNames.Contains(u.Name))
+            .Select(u => u.Id)
+            .ToList();
+
+        foreach (var id in selectedUnitIds)
+            queryParams.Add($"unitIds={id}");
+
+        var query = string.Join("&", queryParams);
+
+        shipments = await Http.GetFromJsonAsync<List<ShipmentDto>>($"api/shipments/filtered?{query}");
     }
 
     private async Task ChangeStatus(int shipmentId, ShipmentStatus newStatus)
@@ -81,7 +178,7 @@ else
 
         if (response.IsSuccessStatusCode)
         {
-            await LoadShipments();
+            await ApplyFilters();
         }
         else
         {
@@ -103,6 +200,26 @@ else
     private async Task OnShipmentCreated()
     {
         showCreateForm = false;
-        await LoadShipments();
+        await ApplyFilters();
+    }
+
+    private void OnSelectedNumbersChanged(List<string> selected)
+    {
+        selectedNumbers = selected;
+    }
+
+    private void OnSelectedClientsChanged(List<string> selected)
+    {
+        selectedClientNames = selected;
+    }
+
+    private void OnSelectedResourcesChanged(List<string> selected)
+    {
+        selectedResourceNames = selected;
+    }
+
+    private void OnSelectedUnitsChanged(List<string> selected)
+    {
+        selectedUnitNames = selected;
     }
 }

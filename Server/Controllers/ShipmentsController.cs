@@ -96,5 +96,48 @@ namespace WarehouseApp.Server.Controllers
 				})
 			});
 		}
+
+		[HttpGet("filtered")]
+		public async Task<IActionResult> GetFilteredShipments(
+	[FromQuery] DateTime? from,
+	[FromQuery] DateTime? to,
+	[FromQuery] List<string>? numbers,
+	[FromQuery] List<int>? clientIds,
+	[FromQuery] List<int>? resourceIds,
+	[FromQuery] List<int>? unitIds)
+		{
+			var query = _context.ShipmentDocuments
+				.Include(s => s.Client)
+				.Include(s => s.Items)
+				.AsQueryable();
+
+			if (from.HasValue)
+				query = query.Where(s => s.Date >= from.Value);
+			if (to.HasValue)
+				query = query.Where(s => s.Date <= to.Value);
+			if (numbers != null && numbers.Any())
+				query = query.Where(s => numbers.Contains(s.Number));
+			if (clientIds != null && clientIds.Any())
+				query = query.Where(s => clientIds.Contains(s.ClientId));
+			if ((resourceIds != null && resourceIds.Any()) || (unitIds != null && unitIds.Any()))
+			{
+				query = query.Where(s => s.Items.Any(i =>
+					(resourceIds == null || resourceIds.Contains(i.ResourceId)) &&
+					(unitIds == null || unitIds.Contains(i.UnitId))
+				));
+			}
+
+			var result = await query.Select(s => new ShipmentDto
+			{
+				Id = s.Id,
+				Number = s.Number,
+				Date = s.Date,
+				ClientName = s.Client.Name,
+				Status = s.Status
+			}).ToListAsync();
+
+			return Ok(result);
+		}
+
 	}
 }
