@@ -1,11 +1,14 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using WarehouseApp.Server.Data;
+using WarehouseApp.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Подключение Razor Pages, Controllers и DB
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
+
+builder.Services.AddScoped<ShipmentService>();
 
 builder.Services.AddDbContext<WarehouseDbContext>(options =>
 	options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));

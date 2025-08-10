@@ -11,7 +11,8 @@ public class ShipmentDocument
     public int ClientId { get; set; }
     public Client Client { get; set; } = null!;
 
-    public bool IsSigned { get; set; }
+	public ShipmentStatus Status { get; set; } = ShipmentStatus.Draft;
 
-    public ICollection<ShipmentItem> Items { get; set; } = new List<ShipmentItem>();
+	public ICollection<ShipmentItem> Items { get; set; } = new List<ShipmentItem>();
 }
+

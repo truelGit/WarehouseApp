@@ -1,0 +1,85 @@
+﻿@page "/shipments"
+@using WarehouseApp.Server.Models
+@using WarehouseApp.Shared.Dto
+@inject HttpClient Http
+
+<h2>Документы отгрузок</h2>
+
+@if (shipments == null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else if (!shipments.Any())
+{
+    <p>Данные не найдены.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Номер</th>
+                <th>Дата</th>
+                <th>Клиент</th>
+                <th>Статус</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var shipment in shipments)
+            {
+                <tr>
+                    <td>@shipment.Number</td>
+                    <td>@shipment.Date.ToShortDateString()</td>
+                    <td>@shipment.ClientName</td>
+                    <td>@shipment.Status</td>
+                    <td>
+                        @if (shipment.Status == ShipmentStatus.Draft)
+                        {
+                            <button class="btn btn-success btn-sm" @onclick="() => ChangeStatus(shipment.Id, ShipmentStatus.Signed)">Подписать</button>
+                        }
+                        else if (shipment.Status == ShipmentStatus.Signed)
+                        {
+                            <button class="btn btn-warning btn-sm" @onclick="() => ChangeStatus(shipment.Id, ShipmentStatus.Revoked)">Отозвать</button>
+                        }
+                        else
+                        {
+                            <em>Нет действий</em>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ShipmentDto>? shipments;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadShipments();
+    }
+
+    private async Task LoadShipments()
+    {
+        shipments = await Http.GetFromJsonAsync<List<ShipmentDto>>("api/shipments");
+    }
+
+    private async Task ChangeStatus(int shipmentId, ShipmentStatus newStatus)
+    {
+        var dto = new { newStatus = newStatus.ToString() };
+        var response = await Http.PutAsJsonAsync($"api/shipments/{shipmentId}/status", dto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadShipments();
+        }
+        else
+        {
+            var error = await response.Content.ReadFromJsonAsync<ErrorDto>();
+            // Можно отобразить ошибку через Toast или alert
+            Console.Error.WriteLine($"Ошибка: {error?.Error}");
+        }
+    }
+}
